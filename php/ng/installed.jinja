@@ -28,16 +28,24 @@
   {% if use_external_repo %}
     {% if grains['os'] == 'Ubuntu' %}
       {% set external_repo_name = salt['pillar.get']('php:external_repo_name', 'ondrej/php') %}
+php_add_ppa_repo_{{ state }}:
+  #see https://github.com/saltstack/salt/issues/23543#issuecomment-437050863
+  cmd.run:
+    - name: "apt-add-repository -y ppa:{{ external_repo_name }}"
+    - env:
+      - LC_ALL: 'en_US.UTF-8'
+    # creates...
+
 php_ppa_{{ state }}:
   pkgrepo.managed:
     - ppa: {{ external_repo_name }}
-    - env:
-      - LC_ALL: C.UTF-8
     - onlyif:
       - test ! -e /etc/apt/sources.list.d/ondrej-ubuntu-php-{{ grains['oscodename'] }}.list {# Trusty and Xenial use different naming schemas #}
       - test ! -e /etc/apt/sources.list.d/ondrej-php-{{ grains['oscodename'] }}.list {# Trusty and Xenial use different naming schemas #}
     - require_in:
       - pkg: php_install_{{ state }}
+    - require:
+      - cmd: php_add_ppa_repo_{{ state }}
   pkg.latest:
     - name: {{ state }}
     - pkgs: {{ pkgs|json() }}
@@ -57,8 +65,6 @@ php_ppa_{{ state }}:
     - name: deb https://packages.sury.org/php/ {{ grains['oscodename'] }} main
     - file: /etc/apt/sources.list.d/ondrej-php.list
     - key_url: https://packages.sury.org/php/apt.gpg
-    - env:
-      - LC_ALL: C.UTF-8
     - onlyif:
       - test ! -e /etc/apt/sources.list.d/ondrej-php.list 
     - require_in:
